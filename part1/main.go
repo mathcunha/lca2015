@@ -29,22 +29,36 @@ func main() {
 func handleConnection(conn net.Conn) {
 	defer conn.Close()
 
-	req, _ := http.ReadRequest(bufio.NewReader(conn))
-	log.Printf("printing the request %v \n", req)
-	rConn, err := dialRemote(req)
+	req, err := http.ReadRequest(bufio.NewReader(conn))
 
-	if err == nil {
-		defer rConn.Close()
-		res := new(http.Response)
-		log.Println("reading response")
-		res, err = http.ReadResponse(bufio.NewReader(rConn), req)
-		defer res.Body.Close()
-
-		log.Printf("printing the RESPONSE %v \n", res)
-		res.Write(bufio.NewWriter(conn))
-	} else {
-		log.Printf("error sending request to backend %v \n", err)
+	if err != nil {
+		log.Printf("error reaading request from client %v \n", err)
+		return
 	}
+
+	log.Printf("printing the request %v \n", req)
+	var rConn net.Conn
+	rConn, err = dialRemote(req)
+	if err != nil {
+		log.Printf("error sending request to backend %v \n", err)
+		return
+	}
+
+	req.Write(rConn)
+	defer rConn.Close()
+
+	res := new(http.Response)
+	log.Println("reading response")
+	res, err = http.ReadResponse(bufio.NewReader(rConn), req)
+	if err != nil {
+		log.Printf("error reading RESPONSE %v \n", err)
+		return
+	}
+
+	defer res.Body.Close()
+
+	log.Printf("printing the RESPONSE %v \n", res)
+	res.Write(bufio.NewWriter(conn))
 }
 
 func dialRemote(req *http.Request) (net.Conn, error) {
