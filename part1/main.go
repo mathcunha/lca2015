@@ -17,48 +17,62 @@ func main() {
 
 	for {
 		conn, erro := ln.Accept()
-		if err != nil {
+		if erro != nil {
 			log.Fatalf("error establishing connection, %s", erro)
 		}
-
 		go handleConnection(conn)
 	}
 
 }
 
 func handleConnection(conn net.Conn) {
+	//Handle - ini
 	defer conn.Close()
-
-	req, err := http.ReadRequest(bufio.NewReader(conn))
+	cli_input := bufio.NewReader(conn)
+	req, err := http.ReadRequest(cli_input)
 
 	if err != nil {
 		log.Printf("error reaading request from client %v \n", err)
 		return
 	}
 
-	log.Printf("printing the request %v \n", req)
-	var rConn net.Conn
-	rConn, err = dialRemote(req)
+	endpoint := strings.Join([]string{req.URL.Host, ":80"}, "")
+
+	backend, err := net.Dial("tcp", endpoint)
+
+	if err != nil {
+		log.Printf("error dialing to backend %v \n", err)
+		return
+	}
+
+	defer backend.Close()
+
+	err = req.Write(backend)
+
 	if err != nil {
 		log.Printf("error sending request to backend %v \n", err)
 		return
 	}
 
-	req.Write(rConn)
-	defer rConn.Close()
+	be_input := bufio.NewReader(backend)
+	resp, err := http.ReadResponse(be_input, req)
 
-	res := new(http.Response)
-	log.Println("reading response")
-	res, err = http.ReadResponse(bufio.NewReader(rConn), req)
 	if err != nil {
-		log.Printf("error reading RESPONSE %v \n", err)
+		log.Printf("error reading response from %v \n", err)
 		return
 	}
 
-	defer res.Body.Close()
+	resp.Close = true
+	err = resp.Write(conn)
 
-	log.Printf("printing the RESPONSE %v \n", res)
-	res.Write(bufio.NewWriter(conn))
+	if err != nil {
+		log.Printf("error sending response to client %v \n", err)
+		return
+	}
+
+	log.Printf("HTTP status %v \n", resp.Status)
+
+	//Handle - Fim
 }
 
 func dialRemote(req *http.Request) (net.Conn, error) {
