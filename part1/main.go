@@ -28,8 +28,7 @@ func main() {
 func handleConnection(conn net.Conn) {
 	//Handle - ini
 	defer conn.Close()
-	cli_input := bufio.NewReader(conn)
-	req, err := http.ReadRequest(cli_input)
+	req, err := http.ReadRequest(bufio.NewReader(conn))
 
 	if err != nil {
 		log.Printf("error reaading request from client %v \n", err)
@@ -54,8 +53,7 @@ func handleConnection(conn net.Conn) {
 		return
 	}
 
-	be_input := bufio.NewReader(backend)
-	resp, err := http.ReadResponse(be_input, req)
+	resp, err := http.ReadResponse(bufio.NewReader(backend), req)
 
 	if err != nil {
 		log.Printf("error reading response from %v \n", err)
